@@ -483,6 +483,32 @@
         z-index: 2000;
     }
 
+
+    /* Blueprint Boss Styles */
+    .power-up-label {
+        font-size: 0.5rem;
+        color: #ffff00;
+        text-shadow: 0 0 10px #ffff00;
+        margin-top: 0.5rem;
+        text-transform: uppercase;
+        animation: neon-pulse 1s infinite alternate;
+    }
+
+    @keyframes fire-pulse {
+        0% { box-shadow: 0 0 10px #ff4500, inset 0 0 10px #ff4500; }
+        50% { box-shadow: 0 0 30px #ff8c00, inset 0 0 20px #ff8c00; }
+        100% { box-shadow: 0 0 10px #ff4500, inset 0 0 10px #ff4500; }
+    }
+
+    .green-inferno {
+        animation: fire-pulse 0.5s infinite !important;
+        border-color: #ff4500 !important;
+    }
+
+    .octo-slam {
+        animation: shake 0.1s infinite !important;
+    }
+
 </style>
 	</head>
 	<body>
@@ -516,6 +542,7 @@
 			<section id="battleResults" class="battle-results hidden">
 				<article class="player-card">
 					<h2 id="player1Name"></h2>
+					<div id="player1PowerUp" class="power-up-label hidden"></div>
 					<div class="player-meta">
 						<div id="player1DateRange"></div>
 					</div>
@@ -547,6 +574,7 @@
 
 				<article class="player-card">
 					<h2 id="player2Name"></h2>
+					<div id="player2PowerUp" class="power-up-label hidden"></div>
 					<div class="player-meta">
 						<div id="player2DateRange"></div>
 					</div>
@@ -625,6 +653,42 @@
                 }
             }
             const sound = new SoundManager();
+
+            // Power-Up Definitions
+            const POWER_UPS = [
+                { name: 'COMMIT OVERCLOCK', color: '#ffff00' },
+                { name: 'STREAK SHIELD', color: '#00ffff' },
+                { name: 'OCTOCAT\'S HASTE', color: '#ff00ff' }
+            ];
+
+            function applySpecialMoves(data1, data2) {
+                const card1 = document.querySelector('.player-card:first-of-type');
+                const card2 = document.querySelector('.player-card:last-of-type');
+                
+                card1.classList.remove('green-inferno', 'octo-slam');
+                card2.classList.remove('green-inferno', 'octo-slam');
+
+                // Special Move: Green Inferno (Streak > 50)
+                if (data1.longestStreak > 50) {
+                    card1.classList.add('green-inferno');
+                    sound.play('success');
+                }
+                if (data2.longestStreak > 50) {
+                    card2.classList.add('green-inferno');
+                    sound.play('success');
+                }
+
+                // Special Move: Octo-Slam (Contributions > 2000)
+                if (data1.totalContributions > 2000) {
+                    card2.classList.add('octo-slam');
+                    setTimeout(() => card2.classList.remove('octo-slam'), 2000);
+                }
+                if (data2.totalContributions > 2000) {
+                    card1.classList.add('octo-slam');
+                    setTimeout(() => card1.classList.remove('octo-slam'), 2000);
+                }
+            }
+
 
             // History Management
             function saveBattle(p1, p2, winner) {
@@ -853,7 +917,18 @@
                     sound.play('success');
 
 
-					// Show results
+					
+                    // Assign Power-Ups
+                    const p1PU = POWER_UPS[Math.floor(Math.random() * POWER_UPS.length)];
+                    const p2PU = POWER_UPS[Math.floor(Math.random() * POWER_UPS.length)];
+                    
+                    document.getElementById('player1PowerUp').textContent = '⚡ ' + p1PU.name;
+                    document.getElementById('player1PowerUp').classList.remove('hidden');
+                    document.getElementById('player2PowerUp').textContent = '⚡ ' + p2PU.name;
+                    document.getElementById('player2PowerUp').classList.remove('hidden');
+
+                    applySpecialMoves(data1, data2);
+// Show results
 					resultsSection.classList.remove('hidden');
 					newBattleContainer.classList.remove('hidden');
 				} catch (err) {

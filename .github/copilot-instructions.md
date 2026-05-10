@@ -110,4 +110,8 @@ All future UI development must adhere to the **Retro Arcade** aesthetic:
   - **Shimmer/Shine**: Interactive cards and result areas should have subtle shimmer overlays.
   - **Glow on Hover**: Interactive elements like contribution squares should glow when hovered.
 - **Layout**: Keep layouts simple and grid-based, reminiscent of 8-bit arcade cabinets.
+- **Power-Ups & Special Moves**: 
+  - Power-Ups should be displayed as glowing yellow labels below the username.
+  - Special Moves should use high-intensity animations (e.g., Green Inferno, Octo-Slam) when triggered by data milestones.
+
 
