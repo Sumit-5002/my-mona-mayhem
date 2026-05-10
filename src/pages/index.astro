@@ -9,310 +9,362 @@
 		<meta name="viewport" content="width=device-width" />
 		<meta name="generator" content={Astro.generator} />
 		<title>Mona Mayhem</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 		<style>
-			* {
-				margin: 0;
-				padding: 0;
-				box-sizing: border-box;
-			}
+    :root {
+        --bg-color: #0a0a1a;
+        --accent-green: #5fed83;
+        --accent-purple: #8a2be2;
+        --text-color: #ffffff;
+    }
 
-			body {
-				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-				background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-				min-height: 100vh;
-				padding: 2rem 1rem;
-			}
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
 
-			header {
-				text-align: center;
-				color: white;
-				margin-bottom: 3rem;
-			}
+    body {
+        font-family: 'Press Start 2P', cursive;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        min-height: 100vh;
+        padding: 2rem 1rem;
+        position: relative;
+        overflow-x: hidden;
+    }
 
-			h1 {
-				font-size: 2.5rem;
-				margin-bottom: 0.5rem;
-				text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-			}
+    /* CRT Scanline Effect */
+    body::after {
+        content: " ";
+        display: block;
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        background: linear-gradient(
+            to bottom,
+            rgba(18, 16, 16, 0) 50%,
+            rgba(0, 0, 0, 0.25) 50%
+        );
+        background-size: 100% 4px;
+        z-index: 50;
+        pointer-events: none;
+    }
 
-			header p {
-				font-size: 1.1rem;
-				opacity: 0.9;
-			}
+    header {
+        text-align: center;
+        margin-bottom: 3rem;
+    }
 
-			main {
-				max-width: 1000px;
-				margin: 0 auto;
-			}
+    @keyframes neon-pulse {
+        0%, 100% { text-shadow: 0 0 10px var(--accent-green), 0 0 20px var(--accent-green), 0 0 40px var(--accent-green); }
+        50% { text-shadow: 0 0 5px var(--accent-green), 0 0 10px var(--accent-green), 0 0 20px var(--accent-green); }
+    }
 
-			.battle-input {
-				display: flex;
-				gap: 1rem;
-				align-items: flex-end;
-				flex-wrap: wrap;
-				justify-content: center;
-				background: white;
-				padding: 2rem;
-				border-radius: 8px;
-				box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-				margin-bottom: 2rem;
-			}
+    h1 {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+        color: var(--accent-green);
+        animation: neon-pulse 1.5s infinite alternate;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+    }
 
-			.player-input {
-				display: flex;
-				flex-direction: column;
-				gap: 0.5rem;
-				flex: 1;
-				min-width: 200px;
-			}
+    header p {
+        font-size: 0.8rem;
+        color: var(--accent-purple);
+        line-height: 1.5;
+        text-shadow: 0 0 5px var(--accent-purple);
+    }
 
-			.player-input label {
-				font-weight: 600;
-				color: #333;
-				font-size: 0.9rem;
-			}
+    main {
+        max-width: 1000px;
+        margin: 0 auto;
+        position: relative;
+        z-index: 10;
+    }
 
-			.player-input input {
-				padding: 0.75rem;
-				border: 2px solid #ddd;
-				border-radius: 4px;
-				font-size: 1rem;
-				transition: border-color 0.2s;
-			}
+    @keyframes float-in {
+        0% { transform: translateY(-20px); opacity: 0; }
+        100% { transform: translateY(0); opacity: 1; }
+    }
 
-			.player-input input:focus {
-				outline: none;
-				border-color: #667eea;
-				box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-			}
+    .battle-input {
+        display: flex;
+        gap: 1.5rem;
+        align-items: flex-end;
+        flex-wrap: wrap;
+        justify-content: center;
+        background: rgba(20, 20, 40, 0.8);
+        padding: 2rem;
+        border: 2px solid var(--accent-purple);
+        border-radius: 0;
+        box-shadow: 0 0 15px rgba(138, 43, 226, 0.4);
+        margin-bottom: 2rem;
+        animation: float-in 0.5s ease-out forwards;
+    }
 
-			#battleBtn {
-				padding: 0.75rem 2rem;
-				background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-				color: white;
-				border: none;
-				border-radius: 4px;
-				font-size: 1rem;
-				font-weight: 600;
-				cursor: pointer;
-				transition: transform 0.2s, box-shadow 0.2s;
-			}
+    .player-input {
+        display: flex;
+        flex-direction: column;
+        gap: 0.8rem;
+        flex: 1;
+        min-width: 200px;
+    }
 
-			#battleBtn:hover {
-				transform: translateY(-2px);
-				box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-			}
+    .player-input label {
+        color: var(--accent-green);
+        font-size: 0.7rem;
+        text-transform: uppercase;
+    }
 
-			#battleBtn:active {
-				transform: translateY(0);
-			}
+    .player-input input {
+        padding: 1rem;
+        background: #000;
+        border: 2px solid var(--accent-green);
+        color: #fff;
+        font-family: 'Press Start 2P', cursive;
+        font-size: 0.8rem;
+        transition: all 0.2s;
+    }
 
-			@keyframes pulse {
-				0% { opacity: 0.6; }
-				50% { opacity: 1; }
-				100% { opacity: 0.6; }
-			}
+    .player-input input:focus {
+        outline: none;
+        box-shadow: 0 0 15px var(--accent-green);
+    }
 
-			#battleBtn:disabled {
-				cursor: not-allowed;
-				transform: none;
-				animation: pulse 1.5s infinite;
-			}
+    #battleBtn {
+        padding: 1rem 2rem;
+        background: transparent;
+        color: var(--accent-green);
+        border: 2px solid var(--accent-green);
+        font-family: 'Press Start 2P', cursive;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-transform: uppercase;
+    }
 
-			.error-message {
-				color: #e74c3c;
-				font-size: 0.9rem;
-				margin-top: 1rem;
-				width: 100%;
-				text-align: center;
-			}
+    #battleBtn:hover:not(:disabled) {
+        background: var(--accent-green);
+        color: #000;
+        box-shadow: 0 0 20px var(--accent-green);
+    }
 
-			.battle-results {
-				display: grid;
-				grid-template-columns: 1fr auto 1fr;
-				gap: 2rem;
-				margin-top: 2rem;
-				align-items: start;
-			}
+    @keyframes pulse {
+        0% { opacity: 0.6; }
+        50% { opacity: 1; }
+        100% { opacity: 0.6; }
+    }
 
-			.player-card {
-				background: white;
-				padding: 2rem;
-				border-radius: 8px;
-				box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-			}
+    #battleBtn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        animation: pulse 1.5s infinite;
+        border-color: #666;
+        color: #666;
+    }
 
-			.player-card h2 {
-				color: #667eea;
-				margin-bottom: 1.5rem;
-				font-size: 1.5rem;
-			}
+    .error-message {
+        color: #ff3333;
+        font-size: 0.7rem;
+        margin-top: 1rem;
+        width: 100%;
+        text-align: center;
+        text-shadow: 0 0 5px #ff3333;
+    }
 
-			.stats {
-				display: flex;
-				flex-direction: column;
-				gap: 1rem;
-			}
+    .battle-results {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        gap: 2rem;
+        margin-top: 2rem;
+        align-items: start;
+    }
 
-			.stat {
-				display: flex;
-				justify-content: space-between;
-				align-items: center;
-				padding-bottom: 0.75rem;
-				border-bottom: 1px solid #eee;
-			}
+    @keyframes shimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+    }
 
-			.stat .label {
-				color: #666;
-				font-size: 0.9rem;
-				font-weight: 500;
-			}
+    .player-card {
+        background: rgba(10, 10, 30, 0.9);
+        border: 2px solid var(--accent-purple);
+        padding: 2rem;
+        box-shadow: 0 0 20px rgba(138, 43, 226, 0.2);
+        position: relative;
+        overflow: hidden;
+    }
 
-			.stat .value {
-				color: #333;
-				font-size: 1.2rem;
-				font-weight: 700;
-			}
+    .player-card::before {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+        background-size: 200% 100%;
+        animation: shimmer 3s infinite linear;
+        pointer-events: none;
+    }
 
-			.player-meta {
-				color: #888;
-				font-size: 0.85rem;
-				margin-bottom: 1.5rem;
-				display: flex;
-				flex-direction: column;
-				gap: 0.25rem;
-			}
+    .player-card h2 {
+        color: var(--accent-green);
+        margin-bottom: 1.5rem;
+        font-size: 1.2rem;
+        text-shadow: 0 0 5px var(--accent-green);
+    }
 
-			.contribution-graph {
-				margin-top: 1.5rem;
-				padding-top: 1.5rem;
-				border-top: 1px solid #eee;
-			}
+    .stats {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
 
-			.graph-title {
-				font-size: 0.85rem;
-				color: #666;
-				font-weight: 600;
-				margin-bottom: 0.75rem;
-			}
+    .stat {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px dashed #333;
+    }
 
-			.weeks {
-				display: flex;
-				gap: 2px;
-				overflow-x: auto;
-				padding: 0.5rem 0;
-			}
+    .stat .label {
+        color: #aaa;
+        font-size: 0.6rem;
+    }
 
-			.week {
-				display: flex;
-				flex-direction: column;
-				gap: 2px;
-			}
+    .stat .value {
+        color: var(--accent-purple);
+        font-size: 1rem;
+        text-shadow: 0 0 5px var(--accent-purple);
+    }
 
-			.day {
-				width: 12px;
-				height: 12px;
-				border-radius: 2px;
-				cursor: pointer;
-				transition: transform 0.1s;
-				border: 1px solid rgba(0, 0, 0, 0.05);
-			}
+    .player-meta {
+        color: #888;
+        font-size: 0.6rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
 
-			.day:hover {
-				transform: scale(1.2);
-			}
+    .contribution-graph {
+        margin-top: 1.5rem;
+        padding-top: 1.5rem;
+        border-top: 2px dashed #333;
+    }
 
-			/* GitHub contribution colors */
-			.level-0 { background: #ebedf0; }
-			.level-1 { background: #c6e48b; }
-			.level-2 { background: #7bc96f; }
-			.level-3 { background: #239a3b; }
-			.level-4 { background: #196127; }
+    .graph-title {
+        font-size: 0.6rem;
+        color: #aaa;
+        margin-bottom: 1rem;
+    }
 
-			.vs-badge {
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				font-size: 1.5rem;
-				font-weight: 700;
-				color: white;
-				text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-			}
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				background: white;
-				padding: 2rem;
-				border-radius: 8px;
-				box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-			}
+    .weeks {
+        display: flex;
+        gap: 3px;
+        overflow-x: auto;
+        padding: 0.5rem 0;
+        scrollbar-width: thin;
+        scrollbar-color: var(--accent-purple) #111;
+    }
 
-			.winner-banner h3 {
-				text-align: center;
-				color: #764ba2;
-				font-size: 1.3rem;
-			}
+    .week {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
 
-			.hidden {
-				display: none;
-			}
+    .day {
+        width: 12px;
+        height: 12px;
+        border-radius: 0;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 1px solid #222;
+    }
 
-			#newBattleContainer {
-				text-align: center;
-				margin-top: 2rem;
-			}
+    .day:hover {
+        transform: scale(1.5);
+        z-index: 10;
+        box-shadow: 0 0 10px currentColor;
+    }
 
-			#newBattleBtn {
-				padding: 0.75rem 2rem;
-				background: white;
-				color: #667eea;
-				border: 2px solid #667eea;
-				border-radius: 4px;
-				font-size: 1rem;
-				font-weight: 600;
-				cursor: pointer;
-				transition: all 0.2s;
-			}
+    /* GitHub contribution colors adapted for retro theme */
+    .level-0 { background: #111; border-color: #222; }
+    .level-1 { background: #196127; color: #196127; }
+    .level-2 { background: #239a3b; color: #239a3b; }
+    .level-3 { background: #7bc96f; color: #7bc96f; }
+    .level-4 { background: #c6e48b; color: #c6e48b; }
 
-			#newBattleBtn:hover {
-				background: #667eea;
-				color: white;
-				transform: translateY(-2px);
-			}
+    @keyframes badge-shift {
+        0% { filter: hue-rotate(0deg); text-shadow: 0 0 10px #ff00ff; }
+        50% { filter: hue-rotate(90deg); text-shadow: 0 0 20px #00ffff; }
+        100% { filter: hue-rotate(0deg); text-shadow: 0 0 10px #ff00ff; }
+    }
 
-			.loading {
-				text-align: center;
-				color: #666;
-				font-style: italic;
-			}
+    .vs-badge {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        color: #fff;
+        margin-top: 5rem;
+        animation: badge-shift 3s infinite;
+    }
 
-			@media (max-width: 768px) {
-				h1 {
-					font-size: 1.8rem;
-				}
+    .hidden {
+        display: none !important;
+    }
 
-				.battle-input {
-					flex-direction: column;
-				}
+    #newBattleContainer {
+        text-align: center;
+        margin-top: 3rem;
+    }
 
-				.player-input {
-					width: 100%;
-				}
+    #newBattleBtn {
+        padding: 1rem 2rem;
+        background: var(--accent-purple);
+        color: #000;
+        border: none;
+        font-family: 'Press Start 2P', cursive;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-transform: uppercase;
+        box-shadow: 0 0 15px var(--accent-purple);
+    }
 
-				#battleBtn {
-					width: 100%;
-				}
+    #newBattleBtn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 25px var(--accent-purple);
+    }
 
-				.battle-results {
-					grid-template-columns: 1fr;
-				}
+    @keyframes color-shift {
+        0% { color: var(--accent-green); }
+        50% { color: var(--accent-purple); }
+        100% { color: var(--accent-green); }
+    }
 
-				.winner-banner {
-					order: -1;
-					margin-bottom: 1rem;
-				}
-			}
-		</style>
+    .loading {
+        text-align: center;
+        font-size: 0.8rem;
+        animation: color-shift 1s infinite;
+        margin-top: 1rem;
+    }
+
+    @media (max-width: 768px) {
+        h1 { font-size: 1.2rem; }
+        .battle-input { flex-direction: column; }
+        .player-input { width: 100%; }
+        #battleBtn { width: 100%; }
+        .battle-results { grid-template-columns: 1fr; }
+        .vs-badge { margin: 1rem 0; }
+    }
+</style>
 	</head>
 	<body>
 		<header>

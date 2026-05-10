@@ -94,4 +94,20 @@ This allows conditional guidance per track. Ignore these markers unless building
 
 ## Deployment
 
-The app is built for server-side rendering with Node.js. The output is a standalone build artifact. Standard Astro deployment platforms (Vercel, Netlify, Astro Hosting, or Node.js-compatible environments like Heroku, AWS) should work, but this hasn't been tested in this starter state.
+The app is built for server-side rendering with Node.js. The output is a standalone build artifact. ## Design Guide: Retro Arcade Theme
+
+All future UI development must adhere to the **Retro Arcade** aesthetic:
+
+- **Colors**: Use a dark palette with neon accents.
+  - Background: `#0a0a1a`
+  - Neon Green (Accent): `#5fed83`
+  - Neon Purple (Accent): `#8a2be2`
+  - Text: `#ffffff`
+- **Typography**: Use the **'Press Start 2P'** cursive font for all headers, buttons, and UI text.
+- **Animations**:
+  - **Neon Pulse**: Headers should have a soft, pulsing neon glow.
+  - **CRT Scanlines**: Maintain the vintage monitor scanline effect across the background.
+  - **Shimmer/Shine**: Interactive cards and result areas should have subtle shimmer overlays.
+  - **Glow on Hover**: Interactive elements like contribution squares should glow when hovered.
+- **Layout**: Keep layouts simple and grid-based, reminiscent of 8-bit arcade cabinets.
+
