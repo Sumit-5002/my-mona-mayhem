@@ -107,10 +107,16 @@
 				transform: translateY(0);
 			}
 
+			@keyframes pulse {
+				0% { opacity: 0.6; }
+				50% { opacity: 1; }
+				100% { opacity: 0.6; }
+			}
+
 			#battleBtn:disabled {
-				opacity: 0.6;
 				cursor: not-allowed;
 				transform: none;
+				animation: pulse 1.5s infinite;
 			}
 
 			.error-message {
