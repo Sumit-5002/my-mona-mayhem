@@ -85,6 +85,13 @@ This allows conditional guidance per track. Ignore these markers unless building
 - **TypeScript strict mode** — `tsconfig.json` extends `"astro/tsconfigs/strict"`. TypeScript is required.
 - **No linting or formatting yet** — Consider adding ESLint and Prettier if the project scales beyond the workshop scope.
 
+## MCP Servers
+
+**Playwright** is configured for browser automation. Use it to:
+- Test the UI after building features (navigate to `localhost:3000`, interact with forms)
+- Verify the contribution battle arena renders correctly
+- Screenshot arcade UI for validation
+
 ## Deployment
 
 The app is built for server-side rendering with Node.js. The output is a standalone build artifact. Standard Astro deployment platforms (Vercel, Netlify, Astro Hosting, or Node.js-compatible environments like Heroku, AWS) should work, but this hasn't been tested in this starter state.
