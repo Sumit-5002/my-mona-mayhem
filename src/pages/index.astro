@@ -356,7 +356,7 @@
         margin-top: 1rem;
     }
 
-    @media (max-width: 768px) {
+    @media (max-width: 1024px) {
         h1 { font-size: 1.2rem; }
         .battle-input { flex-direction: column; }
         .player-input { width: 100%; }
@@ -364,9 +364,133 @@
         .battle-results { grid-template-columns: 1fr; }
         .vs-badge { margin: 1rem 0; }
     }
+
+    /* Focus Styles for Accessibility */
+    input:focus-visible, button:focus-visible {
+        outline: 3px solid var(--accent-green);
+        outline-offset: 4px;
+        box-shadow: 0 0 15px var(--accent-green);
+    }
+
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-10px); }
+        75% { transform: translateX(10px); }
+    }
+
+    .shake {
+        animation: shake 0.3s ease-in-out 0s 2;
+        border-color: #ff3333 !important;
+        box-shadow: 0 0 20px #ff3333 !important;
+    }
+
+    /* Refined Media Queries */
+    @media (max-width: 1024px) {
+        .battle-results {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+        .vs-badge {
+            margin: 2rem 0;
+            order: 0;
+        }
+    }
+
+
+    /* Bonus Styles */
+    #battleOverlay {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.9);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        color: var(--accent-green);
+    }
+
+    #countdownText {
+        font-size: 5rem;
+        text-shadow: 0 0 20px var(--accent-green);
+        animation: pulse 1s infinite;
+    }
+
+    .history-section {
+        margin-top: 5rem;
+        padding: 2rem;
+        background: rgba(20, 20, 40, 0.8);
+        border: 2px solid var(--accent-purple);
+    }
+
+    .history-section h2 {
+        font-size: 1rem;
+        color: var(--accent-purple);
+        margin-bottom: 2rem;
+        text-align: center;
+    }
+
+    .history-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .history-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 1rem;
+        background: #000;
+        border-left: 4px solid var(--accent-green);
+        font-size: 0.6rem;
+    }
+
+    .legend {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 1rem;
+        font-size: 0.6rem;
+        color: #aaa;
+    }
+
+    .legend-box {
+        width: 12px;
+        height: 12px;
+    }
+
+    .share-btn {
+        margin-top: 2rem;
+        padding: 0.8rem 1.5rem;
+        background: transparent;
+        color: var(--accent-green);
+        border: 2px solid var(--accent-green);
+        font-family: 'Press Start 2P', cursive;
+        font-size: 0.6rem;
+        cursor: pointer;
+    }
+
+    #muteBtn {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        background: transparent;
+        border: 2px solid var(--accent-purple);
+        color: var(--accent-purple);
+        padding: 0.5rem;
+        font-size: 0.6rem;
+        cursor: pointer;
+        z-index: 2000;
+    }
+
 </style>
 	</head>
 	<body>
+        <button id="muteBtn">🔊 MUTE</button>
+        <div id="battleOverlay" class="hidden">
+            <div id="countdownText">3</div>
+        </div>
+
 		<header>
 			<h1>⚔️ Mona Mayhem</h1>
 			<p>The Ultimate GitHub Contribution Battle Arena</p>
@@ -404,11 +528,21 @@
 					<div class="contribution-graph">
 						<div class="graph-title">Last Year</div>
 						<div class="weeks" id="player1Graph"></div>
+                        <div class="legend">
+                            <span>Less</span>
+                            <div class="legend-box level-0"></div>
+                            <div class="legend-box level-1"></div>
+                            <div class="legend-box level-2"></div>
+                            <div class="legend-box level-3"></div>
+                            <div class="legend-box level-4"></div>
+                            <span>More</span>
+                        </div>
 					</div>
 				</article>
 
 				<div class="vs-badge">
 					<div id="winnerText"></div>
+                    <button id="shareBtn" class="share-btn hidden">📋 SHARE RESULTS</button>
 				</div>
 
 				<article class="player-card">
@@ -425,6 +559,15 @@
 					<div class="contribution-graph">
 						<div class="graph-title">Last Year</div>
 						<div class="weeks" id="player2Graph"></div>
+                        <div class="legend">
+                            <span>Less</span>
+                            <div class="legend-box level-0"></div>
+                            <div class="legend-box level-1"></div>
+                            <div class="legend-box level-2"></div>
+                            <div class="legend-box level-3"></div>
+                            <div class="legend-box level-4"></div>
+                            <span>More</span>
+                        </div>
 					</div>
 				</article>
 			</section>
@@ -432,9 +575,94 @@
 			<div id="newBattleContainer" class="hidden">
 				<button id="newBattleBtn">⚔️ Battle Again!</button>
 			</div>
-		</main>
+		
+            <section class="history-section">
+                <h2>RECENT BATTLES</h2>
+                <div id="historyList" class="history-list">
+                    <p style="text-align: center; color: #666;">No battles recorded yet.</p>
+                </div>
+                <button id="clearHistory" class="share-btn" style="width: 100%; margin-top: 1rem;">CLEAR HISTORY</button>
+            </section>
+</main>
 
 		<script>
+
+            // Sound Manager
+            class SoundManager {
+                constructor() {
+                    this.ctx = null;
+                    this.muted = false;
+                }
+                init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+                play(type) {
+                    if (this.muted || !this.ctx) return;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    if (type === 'start') {
+                        osc.type = 'square';
+                        osc.frequency.setValueAtTime(440, this.ctx.currentTime);
+                        osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.1);
+                        gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+                        osc.start(); osc.stop(this.ctx.currentTime + 0.1);
+                    } else if (type === 'success') {
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+                        osc.frequency.exponentialRampToValueAtTime(1200, this.ctx.currentTime + 0.2);
+                        gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                        osc.start(); osc.stop(this.ctx.currentTime + 0.2);
+                    } else if (type === 'error') {
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+                        osc.frequency.linearRampToValueAtTime(50, this.ctx.currentTime + 0.3);
+                        gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                        osc.start(); osc.stop(this.ctx.currentTime + 0.3);
+                    }
+                }
+            }
+            const sound = new SoundManager();
+
+            // History Management
+            function saveBattle(p1, p2, winner) {
+                const history = JSON.parse(localStorage.getItem('battle_history') || '[]');
+                history.unshift({ p1, p2, winner, time: new Date().toLocaleTimeString() });
+                localStorage.setItem('battle_history', JSON.stringify(history.slice(0, 10)));
+                renderHistory();
+            }
+            function renderHistory() {
+                const history = JSON.parse(localStorage.getItem('battle_history') || '[]');
+                const list = document.getElementById('historyList');
+                if (history.length === 0) {
+                    list.innerHTML = '<p style="text-align: center; color: #666;">No battles recorded yet.</p>';
+                    return;
+                }
+                list.innerHTML = history.map(h => `<div class="history-item"><span>${h.p1} VS ${h.p2}</span><span>WINNER: ${h.winner}</span></div>`).join('');
+            }
+            renderHistory();
+
+            document.getElementById('muteBtn').addEventListener('click', () => {
+                sound.muted = !sound.muted;
+                document.getElementById('muteBtn').textContent = sound.muted ? '🔇 UNMUTE' : '🔊 MUTE';
+            });
+            document.getElementById('clearHistory').addEventListener('click', () => {
+                localStorage.removeItem('battle_history');
+                renderHistory();
+            });
+
+            // Share Logic
+            document.getElementById('shareBtn').addEventListener('click', () => {
+                const text = `⚔️ MONA MAYHEM BATTLE ⚔️\n\n${document.getElementById('player1Name').textContent} (${document.getElementById('player1Total').textContent}) VS ${document.getElementById('player2Name').textContent} (${document.getElementById('player2Total').textContent})\n\n${document.getElementById('winnerText').textContent}`;
+                navigator.clipboard.writeText(text);
+                const btn = document.getElementById('shareBtn');
+                const old = btn.textContent;
+                btn.textContent = 'COPIED!';
+                setTimeout(() => btn.textContent = old, 2000);
+            });
+
 			// TypeScript interfaces
 			interface ContributionDay {
 				date: string;
@@ -527,25 +755,53 @@
 			const newBattleContainer = document.getElementById('newBattleContainer') as HTMLDivElement;
 			const newBattleBtn = document.getElementById('newBattleBtn') as HTMLButtonElement;
 
-			battleBtn.addEventListener('click', async () => {
-				const player1 = player1Input.value.trim();
-				const player2 = player2Input.value.trim();
+			
+            battleBtn.addEventListener('click', async () => {
+                const player1 = player1Input.value.trim();
+                const player2 = player2Input.value.trim();
+                
+                sound.init();
 
-				// Validate inputs
-				errorDiv.textContent = '';
-				if (!player1 || !player2) {
-					errorDiv.textContent = 'Please enter both usernames';
-					return;
-				}
+                // Validate inputs
+                errorDiv.textContent = '';
+                const inputContainer = document.querySelector('.battle-input');
+                inputContainer.classList.remove('shake');
 
-				if (player1 === player2) {
-					errorDiv.textContent = 'Players must be different users';
-					return;
-				}
+                if (!player1 || !player2) {
+                    errorDiv.textContent = 'MISSING DATA - ENTER BOTH USERNAMES';
+                    inputContainer.classList.add('shake');
+                    sound.play('error');
+                    return;
+                }
 
-				// Show loading state
-				battleBtn.disabled = true;
-				battleBtn.textContent = 'Battling...';
+                if (player1 === player2) {
+                    errorDiv.textContent = 'DUPLICATE PLAYERS - USERS MUST BE UNIQUE';
+                    inputContainer.classList.add('shake');
+                    sound.play('error');
+                    return;
+                }
+
+                sound.play('start');
+
+                // Countdown Sequence
+                const overlay = document.getElementById('battleOverlay');
+                const cdText = document.getElementById('countdownText');
+                overlay.classList.remove('hidden');
+                
+                for (let i = 3; i > 0; i--) {
+                    cdText.textContent = i;
+                    sound.play('start');
+                    await new Promise(r => setTimeout(r, 800));
+                }
+                cdText.textContent = 'FIGHT!';
+                sound.play('success');
+                await new Promise(r => setTimeout(r, 500));
+                overlay.classList.add('hidden');
+
+                // Show loading state
+                battleBtn.disabled = true;
+                battleBtn.textContent = 'BATTLING...';
+
 
 				try {
 					// Fetch both players' data in parallel
@@ -573,11 +829,13 @@
 					document.getElementById('player1Total')!.textContent = data1.totalContributions.toLocaleString();
 					document.getElementById('player1DateRange')!.textContent = formatDateRange(data1.contributionsByDay);
 					document.getElementById('player1Graph')!.innerHTML = createContributionGraph(data1.contributionsByDay);
+                    document.getElementById('player1Streak')!.textContent = data1.longestStreak + ' DAYS';
 
 					document.getElementById('player2Name')!.textContent = data2.username;
 					document.getElementById('player2Total')!.textContent = data2.totalContributions.toLocaleString();
 					document.getElementById('player2DateRange')!.textContent = formatDateRange(data2.contributionsByDay);
 					document.getElementById('player2Graph')!.innerHTML = createContributionGraph(data2.contributionsByDay);
+                    document.getElementById('player2Streak')!.textContent = data2.longestStreak + ' DAYS';
 
 					// Determine winner
 					let winner;
@@ -590,6 +848,10 @@
 					}
 
 					document.getElementById('winnerText')!.textContent = winner;
+                    saveBattle(data1.username, data2.username, winner.replace('🏆 ', '').replace(' wins!', ''));
+                    document.getElementById('shareBtn').classList.remove('hidden');
+                    sound.play('success');
+
 
 					// Show results
 					resultsSection.classList.remove('hidden');
