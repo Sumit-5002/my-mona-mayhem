@@ -6,6 +6,22 @@ export const prerender = false;
 
 const CACHE_DIR = '.cache/contributions';
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const CACHE_SCHEMA_VERSION = 2;
+
+interface ContributionDay {
+	date: string;
+	count: number;
+}
+
+interface ParsedContributionData {
+	username: string;
+	totalContributions: number;
+	currentStreak: number;
+	longestStreak: number;
+	contributionsByDay: ContributionDay[];
+	cached: boolean;
+	cacheExpiry: number;
+}
 
 // Ensure cache directory exists
 function ensureCacheDir() {
@@ -32,10 +48,22 @@ function isCacheValid(username: string): boolean {
 	if (!fs.existsSync(metaPath)) return false;
 	try {
 		const meta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
-		return meta.expiresAt > Date.now();
+		return meta.expiresAt > Date.now() && meta.schemaVersion === CACHE_SCHEMA_VERSION;
 	} catch {
 		return false;
 	}
+}
+
+function isValidCachedData(data: unknown): data is ParsedContributionData {
+	if (!data || typeof data !== 'object') return false;
+	const obj = data as Record<string, unknown>;
+	return (
+		typeof obj.username === 'string' &&
+		typeof obj.totalContributions === 'number' &&
+		typeof obj.currentStreak === 'number' &&
+		typeof obj.longestStreak === 'number' &&
+		Array.isArray(obj.contributionsByDay)
+	);
 }
 
 // Read valid cache
@@ -44,7 +72,8 @@ function readCache(username: string): any | null {
 	try {
 		const cachePath = getCachePath(username);
 		if (fs.existsSync(cachePath)) {
-			return JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
+			const cached = JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
+			return isValidCachedData(cached) ? cached : null;
 		}
 	} catch {
 		return null;
@@ -57,7 +86,8 @@ function readStaleCache(username: string): any | null {
 	try {
 		const cachePath = getCachePath(username);
 		if (fs.existsSync(cachePath)) {
-			return JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
+			const cached = JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
+			return isValidCachedData(cached) ? cached : null;
 		}
 	} catch {
 		return null;
@@ -76,6 +106,7 @@ function writeCache(username: string, data: any): void {
 
 		const meta = {
 			username,
+			schemaVersion: CACHE_SCHEMA_VERSION,
 			cachedAt: new Date().toISOString(),
 			expiresAt: Date.now() + CACHE_TTL_MS,
 		};
@@ -85,55 +116,159 @@ function writeCache(username: string, data: any): void {
 	}
 }
 
-// Parse contribution data from SVG response
-function parseContributions(svgText: string, username: string): any {
-	const contributionsByDay: Array<{ date: string; count: number }> = [];
-	let totalContributions = 0;
-	let currentStreak = 0;
-	let longestStreak = 0;
+function normalizeDate(dateValue: unknown): string | null {
+	if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+		return dateValue;
+	}
+	return null;
+}
 
-	// Parse data from SVG rect elements with data-date and data-count attributes
-	const rectPattern = /data-date="(\d{4}-\d{2}-\d{2})" data-count="(\d+)"/g;
-	let match;
-	let lastDate: Date | null = null;
-	let tempStreak = 0;
+function computeDateFromWeek(firstDayValue: unknown, weekdayValue: unknown): string | null {
+	if (typeof firstDayValue !== 'string') return null;
+	const firstDay = new Date(firstDayValue);
+	if (Number.isNaN(firstDay.getTime())) return null;
 
-	while ((match = rectPattern.exec(svgText)) !== null) {
-		const dateStr = match[1];
-		const count = parseInt(match[2], 10);
+	const weekday = typeof weekdayValue === 'number' ? weekdayValue : -1;
+	if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) return null;
 
-		contributionsByDay.push({
-			date: dateStr,
-			count,
+	const currentDate = new Date(firstDay);
+	currentDate.setDate(firstDay.getDate() + weekday);
+	return currentDate.toISOString().split('T')[0];
+}
+
+function extractFromJsonPayload(data: any): ContributionDay[] {
+	const allDays: ContributionDay[] = [];
+	const weeks = Array.isArray(data?.weeks) ? data.weeks : [];
+
+	weeks.forEach((week: any) => {
+		const days = Array.isArray(week?.contribution_days)
+			? week.contribution_days
+			: Array.isArray(week?.contributionDays)
+				? week.contributionDays
+				: [];
+
+		days.forEach((day: any) => {
+			const rawCount = day?.count ?? day?.contributionCount ?? 0;
+			const count = Number(rawCount);
+			if (!Number.isFinite(count) || count < 0) return;
+
+			const explicitDate = normalizeDate(day?.date);
+			const computedDate = computeDateFromWeek(week?.first_day ?? week?.firstDay, day?.weekday);
+			const date = explicitDate ?? computedDate;
+			if (!date) return;
+
+			allDays.push({ date, count: Math.floor(count) });
 		});
+	});
 
-		totalContributions += count;
-
-		// Calculate streaks
-		const currentDate = new Date(dateStr);
-		if (count > 0) {
-			if (lastDate) {
-				const dayDiff =
-					(currentDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
-				if (dayDiff <= 1) {
-					tempStreak++;
-				} else {
-					longestStreak = Math.max(longestStreak, tempStreak);
-					tempStreak = 1;
-				}
-			} else {
-				tempStreak = 1;
-			}
-			lastDate = currentDate;
-		} else {
-			longestStreak = Math.max(longestStreak, tempStreak);
-			tempStreak = 0;
-			lastDate = null;
-		}
+	// Fallback for flat daily arrays
+	if (allDays.length === 0 && Array.isArray(data?.contributions)) {
+		data.contributions.forEach((day: any) => {
+			const date = normalizeDate(day?.date);
+			const count = Number(day?.count ?? day?.contributionCount ?? 0);
+			if (!date || !Number.isFinite(count) || count < 0) return;
+			allDays.push({ date, count: Math.floor(count) });
+		});
 	}
 
-	longestStreak = Math.max(longestStreak, tempStreak);
-	currentStreak = tempStreak;
+	// Deduplicate by date, keeping the latest seen entry.
+	const dayMap = new Map<string, number>();
+	allDays.forEach(({ date, count }) => dayMap.set(date, count));
+
+	return [...dayMap.entries()]
+		.map(([date, count]) => ({ date, count }))
+		.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function extractFromSvgPayload(svgText: string): ContributionDay[] {
+	const days: ContributionDay[] = [];
+	const rectMatches = svgText.match(/<rect\b[^>]*>/g) || [];
+
+	rectMatches.forEach((rect) => {
+		const dateMatch = rect.match(/\bdata-date="([^"]+)"/);
+		const countMatch = rect.match(/\bdata-count="(\d+)"/);
+		if (!dateMatch || !countMatch) return;
+
+		const date = normalizeDate(dateMatch[1]);
+		const count = Number(countMatch[1]);
+		if (!date || !Number.isFinite(count)) return;
+		days.push({ date, count });
+	});
+
+	return days.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function computeStreaks(contributionsByDay: ContributionDay[]): { currentStreak: number; longestStreak: number } {
+	let longestStreak = 0;
+	let rollingStreak = 0;
+	let previousDate: Date | null = null;
+
+	contributionsByDay.forEach((day) => {
+		const currentDate = new Date(day.date);
+		if (Number.isNaN(currentDate.getTime())) return;
+
+		if (day.count > 0) {
+			if (previousDate) {
+				const dayDiff = Math.round((currentDate.getTime() - previousDate.getTime()) / (1000 * 60 * 60 * 24));
+				rollingStreak = dayDiff === 1 ? rollingStreak + 1 : 1;
+			} else {
+				rollingStreak = 1;
+			}
+
+			longestStreak = Math.max(longestStreak, rollingStreak);
+		} else {
+			rollingStreak = 0;
+		}
+
+		previousDate = currentDate;
+	});
+
+	let currentStreak = 0;
+	let reversePreviousDate: Date | null = null;
+	for (let i = contributionsByDay.length - 1; i >= 0; i--) {
+		const day = contributionsByDay[i];
+		const currentDate = new Date(day.date);
+		if (Number.isNaN(currentDate.getTime())) break;
+		if (day.count <= 0) break;
+
+		if (reversePreviousDate) {
+			const dayDiff = Math.round((reversePreviousDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
+			if (dayDiff !== 1) break;
+		}
+
+		currentStreak++;
+		reversePreviousDate = currentDate;
+	}
+
+	return { currentStreak, longestStreak };
+}
+
+// Parse contribution data from GitHub responses (.contribs JSON, or SVG fallback)
+function parseContributions(rawText: string, username: string): ParsedContributionData {
+	const trimmed = rawText.trim();
+	let contributionsByDay: ContributionDay[] = [];
+	let payloadTotalContributions: number | undefined;
+
+	if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+		let parsed: any;
+		try {
+			parsed = JSON.parse(trimmed);
+		} catch {
+			throw new Error('Failed to parse JSON contribution payload');
+		}
+		contributionsByDay = extractFromJsonPayload(parsed);
+		const totalFromPayload = Number(parsed?.total_contributions ?? parsed?.totalContributions);
+		if (Number.isFinite(totalFromPayload) && totalFromPayload >= 0) {
+			payloadTotalContributions = Math.floor(totalFromPayload);
+		}
+	} else if (trimmed.startsWith('<')) {
+		contributionsByDay = extractFromSvgPayload(trimmed);
+	} else {
+		throw new Error('Unsupported contribution payload format');
+	}
+
+	const totalContributions = payloadTotalContributions ?? contributionsByDay.reduce((sum, day) => sum + day.count, 0);
+	const { currentStreak, longestStreak } = computeStreaks(contributionsByDay);
 
 	return {
 		username,
@@ -173,7 +308,11 @@ export const GET: APIRoute = async ({ params }) => {
 
 	try {
 		// Fetch from GitHub
-		const response = await fetch(`https://github.com/${username}.contribs`);
+		const response = await fetch(`https://github.com/${username}.contribs`, {
+			headers: {
+				Accept: 'application/json, text/plain, */*',
+			},
+		});
 
 		if (!response.ok) {
 			// Return stale cache if available as fallback
@@ -235,10 +374,10 @@ export const GET: APIRoute = async ({ params }) => {
 			);
 		}
 
-		const svgText = await response.text();
+		const responseText = await response.text();
 
 		// Parse the contribution data
-		const data = parseContributions(svgText, username);
+		const data = parseContributions(responseText, username);
 
 		// Write to cache
 		writeCache(username, data);

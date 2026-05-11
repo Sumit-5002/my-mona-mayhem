@@ -17,6 +17,7 @@
         --bg-color: #0a0a1a;
         --accent-green: #5fed83;
         --accent-purple: #8a2be2;
+        --accent-yellow: #ffff00;
         --text-color: #ffffff;
     }
 
@@ -700,41 +701,119 @@
 
 
             // History Management
-            function saveBattle(p1, p2, winner) {
-                const history = JSON.parse(localStorage.getItem('battle_history') || '[]');
-                history.unshift({ p1, p2, winner, time: new Date().toLocaleTimeString() });
-                localStorage.setItem('battle_history', JSON.stringify(history.slice(0, 10)));
+            const HISTORY_LIMIT = 250;
+
+            interface BattleRecord {
+                p1: string;
+                p2: string;
+                winner?: string;
+                p1Total?: number;
+                p2Total?: number;
+                isTie?: boolean;
+                time?: string;
+                playedAt?: string;
+                date?: string;
+            }
+
+            function normalizeWinnerName(winnerText: string | undefined): string {
+                return String(winnerText || '')
+                    .replace('wins!', '')
+                    .replace(/[^a-z0-9_-]/gi, '')
+                    .trim()
+                    .toLowerCase();
+            }
+
+            function getBattleHistory(): BattleRecord[] {
+                try {
+                    const parsed = JSON.parse(localStorage.getItem('battle_history') || '[]');
+                    return Array.isArray(parsed) ? (parsed as BattleRecord[]) : [];
+                } catch {
+                    return [];
+                }
+            }
+
+            function saveBattle(p1: string, p2: string, winner: string, p1Total: number, p2Total: number, isTie: boolean) {
+                const history = getBattleHistory();
+                const now = new Date();
+                history.unshift({
+                    p1,
+                    p2,
+                    winner,
+                    p1Total,
+                    p2Total,
+                    isTie,
+                    time: now.toLocaleTimeString(),
+                    playedAt: now.toLocaleString(),
+                    date: now.toISOString(),
+                });
+                localStorage.setItem('battle_history', JSON.stringify(history.slice(0, HISTORY_LIMIT)));
                 renderHistory();
             }
+
             function renderHistory() {
-                const history = JSON.parse(localStorage.getItem('battle_history') || '[]');
-                const list = document.getElementById('historyList');
+                const history = getBattleHistory();
+                const list = document.getElementById('historyList') as HTMLDivElement | null;
+                if (!list) return;
+
                 if (history.length === 0) {
                     list.innerHTML = '<p style="text-align: center; color: #666;">No battles recorded yet.</p>';
                     return;
                 }
-                list.innerHTML = history.map(h => `<div class="history-item"><span>${h.p1} VS ${h.p2}</span><span>WINNER: ${h.winner}</span></div>`).join('');
+
+                list.innerHTML = history
+                    .map((h) => {
+                        const isTie = Boolean(h.isTie || !h.winner);
+                        const winnerName = normalizeWinnerName(h.winner);
+                        const scoreLine = `${(h.p1Total ?? 0).toLocaleString()} vs ${(h.p2Total ?? 0).toLocaleString()}`;
+                        const playedAt = h.playedAt || (h.date ? new Date(h.date).toLocaleString() : h.time || '');
+
+                        return `<div class="history-item">
+                            <span>${h.p1} (${h.p1Total ?? 0}) VS ${h.p2} (${h.p2Total ?? 0})</span>
+                            <span style="color: ${isTie ? 'var(--accent-yellow)' : 'var(--accent-green)'}">
+                                ${isTie ? 'TIE' : `WINNER ${winnerName.toUpperCase()}`}
+                            </span>
+                            <span style="color:#666">${scoreLine} | ${playedAt}</span>
+                        </div>`;
+                    })
+                    .join('');
             }
             renderHistory();
 
-            document.getElementById('muteBtn').addEventListener('click', () => {
-                sound.muted = !sound.muted;
-                document.getElementById('muteBtn').textContent = sound.muted ? '🔇 UNMUTE' : '🔊 MUTE';
-            });
-            document.getElementById('clearHistory').addEventListener('click', () => {
-                localStorage.removeItem('battle_history');
-                renderHistory();
-            });
+            const muteBtn = document.getElementById('muteBtn') as HTMLButtonElement | null;
+            if (muteBtn) {
+                muteBtn.addEventListener('click', () => {
+                    sound.muted = !sound.muted;
+                    muteBtn.textContent = sound.muted ? 'UNMUTE' : 'MUTE';
+                });
+            }
+
+            const clearHistoryBtn = document.getElementById('clearHistory') as HTMLButtonElement | null;
+            if (clearHistoryBtn) {
+                clearHistoryBtn.addEventListener('click', () => {
+                    localStorage.removeItem('battle_history');
+                    renderHistory();
+                });
+            }
 
             // Share Logic
-            document.getElementById('shareBtn').addEventListener('click', () => {
-                const text = `⚔️ MONA MAYHEM BATTLE ⚔️\n\n${document.getElementById('player1Name').textContent} (${document.getElementById('player1Total').textContent}) VS ${document.getElementById('player2Name').textContent} (${document.getElementById('player2Total').textContent})\n\n${document.getElementById('winnerText').textContent}`;
-                navigator.clipboard.writeText(text);
-                const btn = document.getElementById('shareBtn');
-                const old = btn.textContent;
-                btn.textContent = 'COPIED!';
-                setTimeout(() => btn.textContent = old, 2000);
-            });
+            const shareBtn = document.getElementById('shareBtn') as HTMLButtonElement | null;
+            if (shareBtn) {
+                shareBtn.addEventListener('click', () => {
+                    const p1Name = document.getElementById('player1Name')?.textContent || '';
+                    const p1Total = document.getElementById('player1Total')?.textContent || '';
+                    const p2Name = document.getElementById('player2Name')?.textContent || '';
+                    const p2Total = document.getElementById('player2Total')?.textContent || '';
+                    const winnerText = document.getElementById('winnerText')?.textContent || '';
+
+                    const text = `MONA MAYHEM BATTLE\n\n${p1Name} (${p1Total}) VS ${p2Name} (${p2Total})\n\n${winnerText}`;
+                    navigator.clipboard.writeText(text);
+                    const old = shareBtn.textContent;
+                    shareBtn.textContent = 'COPIED!';
+                    setTimeout(() => {
+                        shareBtn.textContent = old;
+                    }, 2000);
+                });
+            }
 
 			// TypeScript interfaces
 			interface ContributionDay {
@@ -921,7 +1000,9 @@
 					}
 
 					document.getElementById('winnerText')!.textContent = winner;
-                    saveBattle(data1.username, data2.username, winner.replace('🏆 ', '').replace(' wins!', ''));
+                    const isTie = winner === "It's a tie! 🤝";
+                    const winnerName = isTie ? '' : winner.replace('🏆 ', '').replace(' wins!', '');
+                    saveBattle(data1.username, data2.username, winnerName, data1.totalContributions, data2.totalContributions, isTie);
                     document.getElementById('shareBtn').classList.remove('hidden');
                     sound.play('success');
 

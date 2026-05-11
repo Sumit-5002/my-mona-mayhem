@@ -368,7 +368,9 @@ export const prerender = false;
 				.match-vs { text-align: left; }
 				.match-result, .match-time { text-align: left; }
 				.leaderboard-table th:nth-child(4),
-				.leaderboard-table td:nth-child(4) { display: none; }
+				.leaderboard-table td:nth-child(4),
+				.leaderboard-table th:nth-child(6),
+				.leaderboard-table td:nth-child(6) { display: none; }
 			}
 		</style>
 	</head>
@@ -415,7 +417,9 @@ export const prerender = false;
 								<th>Player</th>
 								<th>Wins</th>
 								<th>Battles</th>
+								<th>Score</th>
 								<th>Win Rate</th>
+								<th>Last Battle</th>
 							</tr>
 						</thead>
 						<tbody id="leaderboardBody"></tbody>
@@ -451,51 +455,103 @@ export const prerender = false;
 				winner: string;
 				p1Total?: number;
 				p2Total?: number;
-				time: string;
+				time?: string;
+				playedAt?: string;
 				date?: string;
 				isTie?: boolean;
 			}
 
+			function normalizeWinnerName(winnerText: string | undefined): string {
+				return String(winnerText || '')
+					.replace('wins!', '')
+					.replace(/[^a-z0-9_-]/gi, '')
+					.toLowerCase();
+			}
+
+			function isTieMatch(match: MatchRecord): boolean {
+				return Boolean(match.isTie || !match.winner || normalizeWinnerName(match.winner) === 'itsatie');
+			}
+
+			function getBattleTimestamp(match: MatchRecord): number {
+				if (match.date) {
+					const parsed = Date.parse(match.date);
+					if (!Number.isNaN(parsed)) return parsed;
+				}
+				if (match.playedAt) {
+					const parsed = Date.parse(match.playedAt);
+					if (!Number.isNaN(parsed)) return parsed;
+				}
+				return 0;
+			}
+
+			function formatBattleDate(match: MatchRecord): string {
+				if (match.playedAt) return match.playedAt;
+				if (match.date) {
+					const parsed = new Date(match.date);
+					if (!Number.isNaN(parsed.getTime())) return parsed.toLocaleString();
+				}
+				return match.time || '-';
+			}
+
 			function getHistory(): MatchRecord[] {
 				try {
-					return JSON.parse(localStorage.getItem('battle_history') || '[]');
+					const raw = JSON.parse(localStorage.getItem('battle_history') || '[]');
+					if (!Array.isArray(raw)) return [];
+					return raw
+						.filter((entry) => entry && entry.p1 && entry.p2)
+						.sort((a, b) => getBattleTimestamp(b) - getBattleTimestamp(a));
 				} catch {
 					return [];
 				}
 			}
 
 			function computeStats(history: MatchRecord[]) {
-				// Total battles
 				(document.getElementById('totalBattles') as HTMLElement).textContent = String(history.length);
 
-				// Unique players
 				const players = new Set<string>();
-				history.forEach(h => { players.add(h.p1.toLowerCase()); players.add(h.p2.toLowerCase()); });
+				history.forEach((h) => {
+					players.add(h.p1.toLowerCase());
+					players.add(h.p2.toLowerCase());
+				});
 				(document.getElementById('uniquePlayers') as HTMLElement).textContent = String(players.size);
 
-				// Ties
-				const ties = history.filter(h => h.isTie || h.winner === "It's a tie! 🤝" || h.winner === '').length;
+				const ties = history.filter(isTieMatch).length;
 				(document.getElementById('totalTies') as HTMLElement).textContent = String(ties);
 			}
 
 			function buildLeaderboard(history: MatchRecord[]) {
 				const wins: Record<string, number> = {};
 				const battles: Record<string, number> = {};
+				const scores: Record<string, number> = {};
+				const lastBattle: Record<string, number> = {};
 
-				history.forEach(h => {
+				history.forEach((h) => {
 					const p1 = h.p1.toLowerCase();
 					const p2 = h.p2.toLowerCase();
+					const battleTs = getBattleTimestamp(h);
+
 					battles[p1] = (battles[p1] || 0) + 1;
 					battles[p2] = (battles[p2] || 0) + 1;
 
-					const isTie = h.isTie || h.winner === "It's a tie! 🤝" || !h.winner;
-					if (!isTie) {
-						const winner = h.winner.replace("It's a tie! 🤝", '').toLowerCase().trim();
-						wins[winner] = (wins[winner] || 0) + 1;
+					scores[p1] = (scores[p1] || 0) + (h.p1Total || 0);
+					scores[p2] = (scores[p2] || 0) + (h.p2Total || 0);
+
+					lastBattle[p1] = Math.max(lastBattle[p1] || 0, battleTs);
+					lastBattle[p2] = Math.max(lastBattle[p2] || 0, battleTs);
+
+					if (!isTieMatch(h)) {
+						const winner = normalizeWinnerName(h.winner);
+						if (winner) wins[winner] = (wins[winner] || 0) + 1;
 					}
 				});
 
-				const allPlayers = Object.keys(battles).sort((a, b) => (wins[b] || 0) - (wins[a] || 0));
+				const allPlayers = Object.keys(battles).sort((a, b) => {
+					const winDiff = (wins[b] || 0) - (wins[a] || 0);
+					if (winDiff !== 0) return winDiff;
+					const scoreDiff = (scores[b] || 0) - (scores[a] || 0);
+					if (scoreDiff !== 0) return scoreDiff;
+					return (battles[b] || 0) - (battles[a] || 0);
+				});
 
 				if (allPlayers.length === 0) {
 					(document.getElementById('noLeaderboardMsg') as HTMLElement).style.display = 'block';
@@ -509,26 +565,35 @@ export const prerender = false;
 				(document.getElementById('topWarrior') as HTMLElement).textContent = allPlayers[0].toUpperCase();
 
 				const tbody = document.getElementById('leaderboardBody') as HTMLElement;
-				tbody.innerHTML = allPlayers.map((player, i) => {
-					const rank = i + 1;
-					const w = wins[player] || 0;
-					const b = battles[player] || 0;
-					const rate = b > 0 ? Math.round((w / b) * 100) : 0;
-					const rankClass = rank <= 3 ? `rank-${rank}` : 'rank-other';
-					const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
-					return `<tr class="${rankClass}">
-						<td><span class="rank-badge">${medal}</span></td>
-						<td>${player.toUpperCase()}</td>
-						<td>${w}</td>
-						<td>${b}</td>
-						<td>
-							<div class="win-rate-bar">
-								<div class="win-rate-bg"><div class="win-rate-fill" style="width:${rate}%"></div></div>
-								<span>${rate}%</span>
-							</div>
-						</td>
-					</tr>`;
-				}).join('');
+				tbody.innerHTML = allPlayers
+					.map((player, i) => {
+						const rank = i + 1;
+						const w = wins[player] || 0;
+						const b = battles[player] || 0;
+						const score = scores[player] || 0;
+						const rate = b > 0 ? Math.round((w / b) * 100) : 0;
+						const rankClass = rank <= 3 ? `rank-${rank}` : 'rank-other';
+						const medal = rank === 1 ? '1' : rank === 2 ? '2' : rank === 3 ? '3' : String(rank);
+						const lastBattleLabel = lastBattle[player]
+							? new Date(lastBattle[player]).toLocaleDateString()
+							: '-';
+
+						return `<tr class="${rankClass}">
+							<td><span class="rank-badge">${medal}</span></td>
+							<td>${player.toUpperCase()}</td>
+							<td>${w}</td>
+							<td>${b}</td>
+							<td>${score.toLocaleString()}</td>
+							<td>
+								<div class="win-rate-bar">
+									<div class="win-rate-bg"><div class="win-rate-fill" style="width:${rate}%"></div></div>
+									<span>${rate}%</span>
+								</div>
+							</td>
+							<td>${lastBattleLabel}</td>
+						</tr>`;
+					})
+					.join('');
 			}
 
 			function renderMatches(history: MatchRecord[], filter: string = 'all') {
@@ -537,9 +602,9 @@ export const prerender = false;
 
 				let filtered = [...history];
 				if (filter === 'wins') {
-					filtered = history.filter(h => !h.isTie && h.winner && h.winner !== "It's a tie! 🤝");
+					filtered = history.filter((h) => !isTieMatch(h));
 				} else if (filter === 'ties') {
-					filtered = history.filter(h => h.isTie || h.winner === "It's a tie! 🤝");
+					filtered = history.filter((h) => isTieMatch(h));
 				}
 
 				if (filtered.length === 0) {
@@ -550,43 +615,44 @@ export const prerender = false;
 				}
 
 				noMsg.style.display = 'none';
-				list.innerHTML = filtered.map((h, i) => {
-					const isTie = h.isTie || h.winner === "It's a tie! 🤝";
-					const winnerName = isTie ? '' : h.winner.replace('🏆 ', '').replace(' wins!', '').toLowerCase().trim();
-					const p1IsWinner = !isTie && winnerName === h.p1.toLowerCase();
-					const p2IsWinner = !isTie && winnerName === h.p2.toLowerCase();
+				list.innerHTML = filtered
+					.map((h, i) => {
+						const isTie = isTieMatch(h);
+						const winnerName = normalizeWinnerName(h.winner);
+						const p1IsWinner = !isTie && winnerName === h.p1.toLowerCase();
+						const p2IsWinner = !isTie && winnerName === h.p2.toLowerCase();
+						const resultText = isTie ? 'TIE' : `WINNER ${winnerName.toUpperCase()}`;
+						const scoreText = `${(h.p1Total || 0).toLocaleString()} - ${(h.p2Total || 0).toLocaleString()}`;
 
-					return `<div class="match-item" style="animation-delay:${i * 0.05}s">
-						<div class="match-number">#${history.length - history.indexOf(h)}</div>
-						<div class="match-player ${p1IsWinner ? 'winner' : 'loser'}">${h.p1.toUpperCase()} ${p1IsWinner ? '🏆' : ''}</div>
-						<div class="match-vs">VS</div>
-						<div class="match-player ${p2IsWinner ? 'winner' : 'loser'}">${h.p2.toUpperCase()} ${p2IsWinner ? '🏆' : ''}</div>
-						<div>
-							<div class="match-result ${isTie ? 'result-tie' : 'result-win'}">${isTie ? '🤝 TIE' : `🏆 ${winnerName.toUpperCase()}`}</div>
-							<div class="match-time">${h.time || ''}</div>
-						</div>
-					</div>`;
-				}).join('');
+						return `<div class="match-item" style="animation-delay:${i * 0.05}s">
+							<div class="match-number">#${history.length - history.indexOf(h)}</div>
+							<div class="match-player ${p1IsWinner ? 'winner' : 'loser'}">${h.p1.toUpperCase()} ${p1IsWinner ? '[W]' : ''}</div>
+							<div class="match-vs">VS</div>
+							<div class="match-player ${p2IsWinner ? 'winner' : 'loser'}">${h.p2.toUpperCase()} ${p2IsWinner ? '[W]' : ''}</div>
+							<div>
+								<div class="match-result ${isTie ? 'result-tie' : 'result-win'}">${resultText}</div>
+								<div class="match-time">${scoreText} | ${formatBattleDate(h)}</div>
+							</div>
+						</div>`;
+					})
+					.join('');
 			}
 
-			// Init
 			let currentFilter = 'all';
 			const history = getHistory();
 			computeStats(history);
 			buildLeaderboard(history);
 			renderMatches(history, currentFilter);
 
-			// Filter tabs
-			document.querySelectorAll('.filter-tab').forEach(tab => {
+			document.querySelectorAll('.filter-tab').forEach((tab) => {
 				tab.addEventListener('click', () => {
-					document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+					document.querySelectorAll('.filter-tab').forEach((t) => t.classList.remove('active'));
 					tab.classList.add('active');
 					currentFilter = (tab as HTMLElement).dataset.filter || 'all';
 					renderMatches(getHistory(), currentFilter);
 				});
 			});
 
-			// Clear all
 			document.getElementById('clearAllBtn')!.addEventListener('click', () => {
 				if (confirm('Clear ALL battle history? This cannot be undone.')) {
 					localStorage.removeItem('battle_history');
