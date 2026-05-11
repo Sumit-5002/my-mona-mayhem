@@ -1,0 +1,270 @@
+---
+export const prerender = false;
+
+const p1 = Astro.url.searchParams.get('p1') || 'Player 1';
+const p2 = Astro.url.searchParams.get('p2') || 'Player 2';
+const winner = Astro.url.searchParams.get('winner') || 'Tie';
+const p1Score = Number(Astro.url.searchParams.get('p1Score') || '0');
+const p2Score = Number(Astro.url.searchParams.get('p2Score') || '0');
+const isTie = winner.toLowerCase() === 'tie';
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="description" content="Mona Mayhem Game Over transmission screen." />
+    <title>Game Over | Mona Mayhem</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #0a0a1a;
+        --text: #ffffff;
+        --green: #5fed83;
+        --purple: #8a2be2;
+        --pink: #ff00ff;
+        --danger: #ff3333;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: 'Press Start 2P', cursive;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at 12% 18%, rgba(95, 237, 131, 0.18), transparent 38%),
+          radial-gradient(circle at 82% 12%, rgba(255, 0, 255, 0.16), transparent 36%),
+          linear-gradient(180deg, #05050f, var(--bg) 35%, #03030a 100%);
+        color: var(--text);
+        display: grid;
+        place-items: center;
+        overflow-x: hidden;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+        background-size: 26px 26px;
+        opacity: 0.25;
+        pointer-events: none;
+        animation: grid-drift 20s linear infinite;
+      }
+
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: linear-gradient(to bottom, rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.24) 50%);
+        background-size: 100% 4px;
+        pointer-events: none;
+      }
+
+      @keyframes grid-drift {
+        0% { transform: translate3d(0, 0, 0); }
+        100% { transform: translate3d(26px, 26px, 0); }
+      }
+
+      @keyframes title-flicker {
+        0%, 19%, 21%, 50%, 100% { opacity: 1; }
+        20%, 22%, 51% { opacity: 0.45; }
+      }
+
+      @keyframes pulse-glow {
+        0%, 100% { box-shadow: 0 0 12px rgba(255, 0, 255, 0.35); }
+        50% { box-shadow: 0 0 24px rgba(255, 0, 255, 0.75); }
+      }
+
+      main {
+        width: min(980px, 94vw);
+        display: grid;
+        gap: 1.4rem;
+        position: relative;
+        z-index: 1;
+      }
+
+      .panel {
+        border: 2px solid var(--purple);
+        background: rgba(8, 8, 22, 0.86);
+        padding: 1.6rem;
+      }
+
+      .hero {
+        display: grid;
+        gap: 1rem;
+        border-color: var(--danger);
+      }
+
+      .status {
+        color: var(--green);
+        font-size: 0.62rem;
+        letter-spacing: 0.08em;
+      }
+
+      h1 {
+        color: var(--danger);
+        font-size: clamp(1.45rem, 3.4vw, 2.3rem);
+        line-height: 1.2;
+        text-shadow: 0 0 16px rgba(255, 51, 51, 0.7);
+        animation: title-flicker 3s steps(1) infinite;
+      }
+
+      .subline {
+        color: #b8b8d8;
+        font-size: 0.58rem;
+        line-height: 1.8;
+      }
+
+      .result-grid {
+        display: grid;
+        gap: 0.9rem;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .result-cell {
+        border: 1px solid #2c2c46;
+        padding: 1rem;
+        background: rgba(14, 14, 34, 0.76);
+      }
+
+      .k {
+        font-size: 0.5rem;
+        color: #9f9fbc;
+      }
+
+      .v {
+        margin-top: 0.7rem;
+        font-size: 0.76rem;
+        line-height: 1.5;
+      }
+
+      .winner {
+        color: var(--green);
+        text-shadow: 0 0 8px rgba(95, 237, 131, 0.65);
+      }
+
+      .tie {
+        color: #ffd95d;
+      }
+
+      .actions {
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .btn {
+        display: inline-grid;
+        place-items: center;
+        min-height: 50px;
+        text-decoration: none;
+        font-size: 0.54rem;
+        border: 2px solid transparent;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+      }
+
+      .btn:focus-visible {
+        outline: 3px solid var(--green);
+        outline-offset: 4px;
+      }
+
+      .btn:hover {
+        transform: translateY(-2px);
+      }
+
+      .btn-primary {
+        background: rgba(255, 0, 255, 0.14);
+        color: var(--pink);
+        border-color: var(--pink);
+        animation: pulse-glow 1.9s ease-in-out infinite;
+      }
+
+      .btn-secondary {
+        background: rgba(95, 237, 131, 0.12);
+        color: var(--green);
+        border-color: var(--green);
+      }
+
+      .btn-danger {
+        background: rgba(255, 51, 51, 0.12);
+        color: var(--danger);
+        border-color: var(--danger);
+      }
+
+      .lore {
+        font-size: 0.52rem;
+        color: #8e8eb0;
+        line-height: 1.8;
+      }
+
+      @media (max-width: 760px) {
+        .result-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .actions {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="panel hero">
+        <p class="status">ARENA CORE TRANSMISSION / ROUND TERMINATED</p>
+        <h1>GAME OVER</h1>
+        <p class="subline">Signal locked. Battle data archived in the Neon Grid.</p>
+      </section>
+
+      <section class="panel result-grid">
+        <article class="result-cell">
+          <p class="k">CODER A</p>
+          <p class="v">{p1}</p>
+        </article>
+        <article class="result-cell">
+          <p class="k">FINAL STATUS</p>
+          <p class={`v ${isTie ? 'tie' : 'winner'}`}>{isTie ? 'TIE BROADCAST' : `${winner.toUpperCase()} CLAIMED THE ROUND`}</p>
+        </article>
+        <article class="result-cell">
+          <p class="k">CODER B</p>
+          <p class="v">{p2}</p>
+        </article>
+      </section>
+
+      <section class="panel result-grid">
+        <article class="result-cell">
+          <p class="k">{p1.toUpperCase()} SCORE</p>
+          <p class="v">{p1Score.toLocaleString()}</p>
+        </article>
+        <article class="result-cell">
+          <p class="k">CORE NOTE</p>
+          <p class="v">Every commit leaves an echo. Queue the next round.</p>
+        </article>
+        <article class="result-cell">
+          <p class="k">{p2.toUpperCase()} SCORE</p>
+          <p class="v">{p2Score.toLocaleString()}</p>
+        </article>
+      </section>
+
+      <section class="actions">
+        <a class="btn btn-primary" href="/">START NEW ROUND</a>
+        <a class="btn btn-secondary" href="/leaderboard">VIEW LEADERBOARD</a>
+        <a class="btn btn-danger" href={`/game-over?p1=${encodeURIComponent(p1)}&p2=${encodeURIComponent(p2)}&winner=${encodeURIComponent(winner)}&p1Score=${encodeURIComponent(String(p1Score))}&p2Score=${encodeURIComponent(String(p2Score))}`}>REPLAY TRANSMISSION</a>
+      </section>
+
+      <p class="lore panel">
+        Arena Lore: The Neon Grid only sleeps between transmissions. Every coder returns, every streak can be broken, and every round writes new history to the Core.
+      </p>
+    </main>
+  </body>
+</html>
